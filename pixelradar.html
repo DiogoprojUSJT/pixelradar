@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PixelRadar — Compare preços de jogos em várias lojas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0a18;
+    --bg-panel: #14102a;
+    --bg-panel-2: #191233;
+    --line: rgba(150, 130, 255, 0.14);
+    --magenta: #ff3d81;
+    --cyan: #2ee6c8;
+    --violet: #8266ff;
+    --yellow: #ffc94a;
+    --text: #f3f1fb;
+    --text-dim: #a99fc9;
+    --text-dimmer: #766c96;
+    --radius-cut: 14px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.brand,.stat-num{font-family:'Chakra Petch', sans-serif;}
+  .mono{font-family:'JetBrains Mono', monospace;}
+  a{color:inherit;}
+  img,svg{display:block;}
+  button{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--cyan); outline-offset:3px;}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
+
+  /* background texture */
+  .grid-bg{
+    position:fixed; inset:0; z-index:-2;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:42px 42px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
+  }
+  .glow-blob{
+    position:fixed; z-index:-1; border-radius:50%;
+    filter:blur(90px); opacity:.35; pointer-events:none;
+  }
+  .glow-blob.b1{width:520px; height:520px; top:-160px; left:-140px; background:var(--violet);}
+  .glow-blob.b2{width:460px; height:460px; top:60px; right:-160px; background:var(--magenta);}
+
+  /* ---------- nav ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(12,10,24,.82);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  nav{display:flex; align-items:center; justify-content:space-between; padding:16px 0;}
+  .brand{display:flex; align-items:center; gap:9px; font-size:20px; font-weight:600; letter-spacing:.2px;}
+  .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--cyan); box-shadow:0 0 10px var(--cyan);}
+  .brand em{font-style:normal; color:var(--cyan);}
+  .nav-links{display:flex; gap:30px; list-style:none; margin:0; padding:0;}
+  .nav-links a{
+    font-size:14.5px; color:var(--text-dim); text-decoration:none; transition:color .15s;
+  }
+  .nav-links a:hover{color:var(--text);}
+  .nav-actions{display:flex; align-items:center; gap:14px;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 20px; font-size:14.5px; font-weight:600; cursor:pointer;
+    border:1px solid transparent; text-decoration:none; white-space:nowrap;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  .btn-primary{background:var(--yellow); color:#20130a;}
+  .btn-primary:hover{background:#ffd873;}
+  .btn-ghost{background:transparent; border-color:var(--line); color:var(--text);}
+  .btn-ghost:hover{border-color:var(--cyan); color:var(--cyan);}
+  .menu-toggle{display:none; background:none; border:none; color:var(--text); cursor:pointer; padding:6px;}
+  .mobile-panel{display:none;}
+
+  /* ---------- hero ---------- */
+  .hero{padding:76px 0 56px; position:relative;}
+  .hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center;}
+  .eyebrow-row{display:flex; align-items:center; gap:10px; margin-bottom:18px; color:var(--text-dimmer); font-size:13.5px;}
+  .eyebrow-row .pulse{width:7px; height:7px; border-radius:50%; background:var(--magenta); box-shadow:0 0 8px var(--magenta);}
+  h1.hero-h{
+    font-size:46px; line-height:1.12; font-weight:600; margin:0 0 20px; max-width:560px;
+  }
+  h1.hero-h .hl{color:var(--cyan);}
+  .hero p.sub{color:var(--text-dim); font-size:16.5px; max-width:480px; margin:0 0 30px;}
+
+  .search-box{
+    display:flex; gap:0; background:var(--bg-panel); border:1px solid var(--line);
+    padding:6px; align-items:center;
+    clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  }
+  .search-box input[type=text]{
+    flex:1; background:transparent; border:none; color:var(--text); font-size:15px;
+    padding:12px 10px; outline:none; min-width:0;
+  }
+  .search-box input::placeholder{color:var(--text-dimmer);}
+  .search-box select{
+    background:var(--bg-panel-2); color:var(--text-dim); border:none; font-size:14px;
+    padding:12px 10px; outline:none; cursor:pointer;
+  }
+  .search-box .btn{padding:12px 22px;}
+  .search-icon{color:var(--text-dimmer); padding:0 8px 0 6px; flex-shrink:0;}
+
+  .trust-row{display:flex; gap:22px; margin-top:22px; flex-wrap:wrap;}
+  .trust-item{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dimmer);}
+  .trust-item svg{color:var(--cyan); flex-shrink:0;}
+
+  /* radar visual */
+  .radar-wrap{position:relative; width:100%; aspect-ratio:1/1; max-width:420px; margin:0 auto;}
+  .radar-ring{
+    position:absolute; border:1px solid var(--line); border-radius:50%;
+    top:50%; left:50%; transform:translate(-50%,-50%);
+  }
+  .r1{width:100%; height:100%;}
+  .r2{width:74%; height:74%; border-color:rgba(150,130,255,.2);}
+  .r3{width:46%; height:46%; border-color:rgba(150,130,255,.28);}
+  .r4{width:20%; height:20%; background:var(--bg-panel-2); border-color:var(--violet);}
+  .radar-sweep{
+    position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(46,230,200,.55), transparent 26%);
+    animation:spin 5s linear infinite;
+    mask-image:radial-gradient(circle, black 60%, transparent 61%);
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .blip{
+    position:absolute; display:flex; align-items:center; gap:7px;
+    background:var(--bg-panel); border:1px solid var(--line); padding:7px 11px;
+    font-size:12.5px; white-space:nowrap;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  }
+  .blip .price{color:var(--yellow); font-weight:600;}
+  .blip::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 6px var(--cyan);}
+  .blip-a{top:6%; right:-6%;}
+  .blip-b{bottom:16%; left:-10%;}
+  .blip-c{bottom:-4%; right:12%;}
+
+  @media (prefers-reduced-motion: reduce){
+    .radar-sweep{animation:none;}
+  }
+
+  /* ---------- section shared ---------- */
+  section{padding:64px 0;}
+  .section-head{display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:32px; flex-wrap:wrap;}
+  .section-head h2{font-size:30px; font-weight:600; margin:0 0 6px;}
+  .section-head p{color:var(--text-dim); margin:0; font-size:15px; max-width:480px;}
+
+  /* filters */
+  .filters{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; flex-wrap:wrap;}
+  .chip-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .chip{
+    background:var(--bg-panel); border:1px solid var(--line); color:var(--text-dim);
+    padding:8px 16px; font-size:13.5px; cursor:pointer; transition:.15s;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  }
+  .chip:hover{border-color:var(--cyan); color:var(--text);}
+  .chip.active{background:var(--violet); border-color:var(--violet); color:#fff;}
+  .sort-select{
+    background:var(--bg-panel); border:1px solid var(--line); color:var(--text-dim);
+    padding:9px 14px; font-size:13.5px; cursor:pointer;
+  }
+
+  /* game cards */
+  .games-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:22px;}
+  .game-card{
+    background:var(--bg-panel); border:1px solid var(--line);
+    clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+    transition:transform .18s ease, border-color .18s ease;
+    display:flex; flex-direction:column;
+  }
+  .game-card:hover{transform:translateY(-4px); border-color:rgba(150,130,255,.4);}
+  .cover{
+    height:132px; position:relative; display:flex; align-items:flex-start; justify-content:space-between;
+    padding:14px 16px; overflow:hidden;
+  }
+  .cover::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 40%, rgba(12,10,24,.75)); pointer-events:none;}
+  .tag{
+    position:relative; z-index:1; font-size:11.5px; font-weight:600; padding:4px 9px;
+    background:rgba(12,10,24,.55); border:1px solid rgba(255,255,255,.25); color:#fff;
+    backdrop-filter:blur(4px);
+  }
+  .discount-tag{background:var(--magenta); border-color:var(--magenta); position:relative; z-index:1;}
+  .cover-title{position:absolute; left:16px; bottom:12px; right:16px; z-index:1; font-size:17px; font-weight:600; color:#fff;}
+  .card-body{padding:16px; display:flex; flex-direction:column; gap:14px; flex:1;}
+  .price-row{display:flex; align-items:baseline; gap:10px;}
+  .price-label{font-size:11.5px; color:var(--text-dimmer);}
+  .price-now{font-size:24px; font-weight:700; color:var(--yellow); font-family:'Chakra Petch', sans-serif;}
+  .price-was{font-size:13px; color:var(--text-dimmer); text-decoration:line-through;}
+
+  .store-list{display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--line); padding-top:12px;}
+  .store-row{display:flex; align-items:center; justify-content:space-between; font-size:13px; gap:8px;}
+  .store-name{color:var(--text-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .store-price{font-weight:600; color:var(--text); flex-shrink:0;}
+  .pay-icons{display:flex; gap:5px; flex-shrink:0;}
+  .pay-icons svg{width:14px; height:14px; color:var(--text-dimmer);}
+
+  .more-stores{display:none; flex-direction:column; gap:8px; padding-top:8px;}
+  .more-stores.open{display:flex;}
+  .toggle-btn{
+    display:flex; align-items:center; gap:6px; background:none; border:none; color:var(--cyan);
+    font-size:12.5px; font-weight:600; cursor:pointer; padding:4px 0 0; align-self:flex-start;
+  }
+  .toggle-btn svg{width:12px; height:12px; transition:transform .18s;}
+  .toggle-btn.open svg{transform:rotate(180deg);}
+
+  .empty-state{grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--text-dimmer); border:1px dashed var(--line);}
+  .empty-state strong{display:block; color:var(--text-dim); font-size:16px; margin-bottom:6px;}
+
+  /* how it works */
+  .steps{display:grid; grid-template-columns:repeat(3, 1fr); gap:22px;}
+  .step{
+    background:var(--bg-panel); border:1px solid var(--line); padding:26px 22px;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  }
+  .step-num{font-family:'JetBrains Mono', monospace; color:var(--cyan); font-size:13px; margin-bottom:14px;}
+  .step h3{font-size:18px; margin:0 0 8px; font-weight:600;}
+  .step p{margin:0; color:var(--text-dim); font-size:14.5px;}
+
+  /* payment section */
+  .pay-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:22px;}
+  .pay-card{
+    background:var(--bg-panel-2); border:1px solid var(--line); padding:26px 22px;
+  }
+  .pay-icon-wrap{
+    width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+    background:rgba(46,230,200,.1); border:1px solid rgba(46,230,200,.3); color:var(--cyan); margin-bottom:16px;
+  }
+  .pay-card h3{font-size:17px; margin:0 0 8px; font-weight:600;}
+  .pay-card p{margin:0; color:var(--text-dim); font-size:14px;}
+
+  /* newsletter */
+  .newsletter{
+    background:var(--bg-panel); border:1px solid var(--line); padding:44px;
+    display:flex; align-items:center; justify-content:space-between; gap:30px; flex-wrap:wrap;
+    clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 28px 100%, 0 calc(100% - 28px));
+  }
+  .newsletter h2{font-size:24px; margin:0 0 8px; font-weight:600;}
+  .newsletter p{margin:0; color:var(--text-dim); font-size:14.5px; max-width:380px;}
+  .newsletter form{display:flex; gap:0; flex-shrink:0;}
+  .newsletter input{
+    background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text); padding:12px 14px;
+    font-size:14px; width:240px; outline:none;
+  }
+  .newsletter .btn{padding:12px 20px;}
+  .newsletter-msg{font-size:13px; color:var(--cyan); margin-top:10px; display:none;}
+  .newsletter-msg.show{display:block;}
+  .newsletter-msg.erro{color:var(--magenta);}
+  .newsletter select{
+    background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text); padding:12px 14px;
+    font-size:14px; outline:none;
+  }
+  .newsletter-form-row{display:flex; flex-direction:column; gap:10px; flex-shrink:0;}
+  .newsletter-actions{display:flex; gap:0;}
+  .newsletter-privacy-note{font-size:12px; color:var(--text-dimmer); max-width:320px; margin-top:4px;}
+  .newsletter-privacy-note button{background:none; border:none; color:var(--cyan); cursor:pointer; padding:0; font-size:12px; text-decoration:underline;}
+
+  .api-status{font-size:12.5px; color:var(--text-dimmer); margin-top:8px; display:flex; align-items:center; gap:7px;}
+  .api-status .dot{width:6px; height:6px; border-radius:50%; background:var(--text-dimmer); flex-shrink:0;}
+  .api-status.ligada .dot{background:var(--cyan); box-shadow:0 0 6px var(--cyan);}
+  .api-status.exemplo .dot{background:var(--yellow);}
+
+  .alertas-lista{display:flex; flex-direction:column; gap:10px; margin-top:18px;}
+  .alerta-item{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    background:var(--bg-panel-2); border:1px solid var(--line); padding:12px 16px; font-size:13.5px;
+  }
+  .alerta-item .info{color:var(--text-dim);}
+  .alerta-item .info strong{color:var(--text); font-weight:600;}
+  .alerta-item button{
+    background:none; border:1px solid var(--line); color:var(--text-dimmer); cursor:pointer;
+    padding:5px 10px; font-size:12px;
+  }
+  .alerta-item button:hover{border-color:var(--magenta); color:var(--magenta);}
+
+  /* ---------- modais (conta e política) ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:100; background:rgba(8,6,16,.72); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    position:relative; width:100%; max-width:420px; max-height:88vh; overflow-y:auto;
+    background:var(--bg-panel); border:1px solid var(--line); padding:32px 28px 28px;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  }
+  .modal.modal-wide{max-width:560px;}
+  .modal-close{
+    position:absolute; top:14px; right:14px; background:none; border:none; color:var(--text-dimmer);
+    cursor:pointer; padding:6px;
+  }
+  .modal-close:hover{color:var(--text);}
+  .modal-tabs{display:flex; gap:4px; margin-bottom:22px; border-bottom:1px solid var(--line);}
+  .modal-tab{
+    flex:1; background:none; border:none; color:var(--text-dimmer); font-size:14px; font-weight:600;
+    padding:10px 4px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .modal-tab.active{color:var(--text); border-bottom-color:var(--cyan);}
+  .modal h3{font-size:19px; margin:0 0 6px; font-weight:600;}
+  .modal-sub{color:var(--text-dim); font-size:13.5px; margin:0 0 20px;}
+  .modal-panel{display:none; flex-direction:column; gap:14px;}
+  .modal-panel.active{display:flex;}
+  .campo{display:flex; flex-direction:column; gap:6px;}
+  .campo label{font-size:12.5px; color:var(--text-dim);}
+  .campo input[type=text], .campo input[type=email], .campo input[type=password], .campo input[type=number]{
+    background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text); padding:11px 13px;
+    font-size:14px; outline:none;
+  }
+  .campo input:focus{border-color:var(--cyan);}
+  .campo-check{display:flex; align-items:flex-start; gap:9px; font-size:12.5px; color:var(--text-dim); line-height:1.4;}
+  .campo-check input{margin-top:3px; flex-shrink:0;}
+  .campo-check button{background:none; border:none; color:var(--cyan); cursor:pointer; padding:0; font-size:12.5px; text-decoration:underline;}
+  .modal-erro{font-size:13px; color:var(--magenta); display:none;}
+  .modal-erro.show{display:block;}
+  .modal .btn{justify-content:center; width:100%;}
+  .conta-info{display:flex; flex-direction:column; gap:4px; margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--line);}
+  .conta-info .nome{font-size:18px; font-weight:600; font-family:'Chakra Petch', sans-serif;}
+  .conta-info .email{font-size:13px; color:var(--text-dimmer);}
+  .conta-acoes{display:flex; flex-direction:column; gap:10px;}
+  .conta-acoes .btn-sair{background:transparent; border:1px solid var(--line); color:var(--text-dim);}
+  .conta-acoes .btn-excluir{background:transparent; border:1px solid rgba(255,61,129,.4); color:var(--magenta);}
+  .conta-acoes .btn-excluir:hover{background:rgba(255,61,129,.1);}
+  .politica-texto{font-size:14px; color:var(--text-dim); display:flex; flex-direction:column; gap:12px;}
+  .politica-texto h4{color:var(--text); font-size:14.5px; margin:10px 0 2px;}
+
+  footer{border-top:1px solid var(--line); padding:44px 0 30px;}
+  .foot-grid{display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:36px; margin-bottom:32px;}
+  .foot-brand p{color:var(--text-dimmer); font-size:13.5px; max-width:280px; margin-top:12px;}
+  footer h4{font-size:13.5px; margin:0 0 14px; color:var(--text-dim); font-weight:600;}
+  footer ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px;}
+  footer a{color:var(--text-dimmer); text-decoration:none; font-size:13.5px;}
+  footer a:hover{color:var(--cyan);}
+  .foot-bottom{border-top:1px solid var(--line); padding-top:22px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; color:var(--text-dimmer); font-size:12.5px;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:900px){
+    .hero-grid{grid-template-columns:1fr;}
+    .radar-wrap{max-width:300px;}
+    .games-grid{grid-template-columns:repeat(2,1fr);}
+    .steps{grid-template-columns:1fr 1fr;}
+    .pay-grid{grid-template-columns:1fr;}
+    .foot-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:680px){
+    .nav-links{display:none;}
+    .nav-actions .btn-ghost{display:none;}
+    .menu-toggle{display:block;}
+    .mobile-panel.open{display:flex; flex-direction:column; gap:2px; padding:10px 0 16px; border-top:1px solid var(--line);}
+    .mobile-panel a{padding:10px 4px; color:var(--text-dim); text-decoration:none; font-size:14.5px;}
+    h1.hero-h{font-size:32px;}
+    .hero{padding:44px 0 40px;}
+    .search-box{flex-wrap:wrap;}
+    .search-box select{width:100%; order:3;}
+    .search-box .btn{width:100%; justify-content:center; order:4; margin-top:6px;}
+    .games-grid{grid-template-columns:1fr;}
+    .steps{grid-template-columns:1fr;}
+    .foot-grid{grid-template-columns:1fr; gap:26px;}
+    .newsletter{flex-direction:column; align-items:flex-start;}
+    .newsletter input{width:100%;}
+    .newsletter form{width:100%;}
+    section{padding:44px 0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="glow-blob b1"></div>
+<div class="glow-blob b2"></div>
+
+<!-- icon defs -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></symbol>
+  <symbol id="ic-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></symbol>
+  <symbol id="ic-barcode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="4" y2="20"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="15" y1="4" x2="15" y2="20"/><line x1="19" y1="4" x2="19" y2="20"/></symbol>
+  <symbol id="ic-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="ic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+  <symbol id="ic-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+  <symbol id="ic-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/></symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></symbol>
+  <symbol id="ic-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 12.6 12.6 20.6a2 2 0 0 1-2.8 0l-7.4-7.4V4h9.2l7.4 7.4a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7.5" r="1"/></symbol>
+</svg>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <a href="#topo" class="brand"><span class="dot"></span>Pixel<em>Radar</em></a>
+      <ul class="nav-links">
+        <li><a href="#ofertas">Ofertas</a></li>
+        <li><a href="#como-funciona">Como funciona</a></li>
+        <li><a href="#pagamento">Formas de pagamento</a></li>
+        <li><a href="#alerta">Alerta de preço</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button type="button" class="btn btn-ghost conta-btn" id="botaoConta">Entrar</button>
+        <a href="#alerta" class="btn btn-primary">Criar alerta</a>
+        <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-expanded="false">
+          <svg width="22" height="22"><use href="#ic-menu"/></svg>
+        </button>
+      </div>
+    </nav>
+    <div class="mobile-panel" id="mobilePanel">
+      <a href="#ofertas">Ofertas</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#pagamento">Formas de pagamento</a>
+      <a href="#alerta">Alerta de preço</a>
+      <button type="button" class="btn btn-ghost conta-btn" id="botaoContaMobile" style="margin-top:10px; align-self:flex-start;">Entrar</button>
+    </div>
+  </div>
+</header>
+
+<main id="topo">
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow-row"><span class="pulse"></span>Comparando preços em 40+ lojas parceiras agora</div>
+          <h1 class="hero-h">Ache o mesmo jogo <span class="hl">por menos</span>, sem abrir dez abas.</h1>
+          <p class="sub">O PixelRadar varre lojas de jogos de PC e console e reúne os preços num só lugar — com cartão, boleto ou Pix, você escolhe onde comprar.</p>
+
+          <form class="search-box" id="heroSearchForm">
+            <span class="search-icon"><svg width="18" height="18"><use href="#ic-search"/></svg></span>
+            <input type="text" id="heroSearch" placeholder="Busque um jogo, ex: Elden Ring" aria-label="Buscar jogo">
+            <select id="heroPlatform" aria-label="Plataforma">
+              <option value="todos">Todas as plataformas</option>
+              <option value="pc">PC</option>
+              <option value="playstation">PlayStation</option>
+              <option value="xbox">Xbox</option>
+              <option value="switch">Nintendo Switch</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Buscar ofertas</button>
+          </form>
+
+          <div class="trust-row">
+            <div class="trust-item"><svg width="16" height="16"><use href="#ic-shield"/></svg>Lojas verificadas manualmente</div>
+            <div class="trust-item"><svg width="16" height="16"><use href="#ic-clock"/></svg>Preços atualizados o dia todo</div>
+            <div class="trust-item"><svg width="16" height="16"><use href="#ic-tag"/></svg>Sem taxa pra comparar</div>
+          </div>
+        </div>
+
+        <div class="radar-wrap" aria-hidden="true">
+          <div class="radar-ring r1"></div>
+          <div class="radar-ring r2"></div>
+          <div class="radar-ring r3"></div>
+          <div class="radar-ring r4"></div>
+          <div class="radar-sweep"></div>
+          <div class="blip blip-a">ByteZone <span class="price">R$ 74,90</span></div>
+          <div class="blip blip-b">NerdBit <span class="price">R$ 68,50</span></div>
+          <div class="blip blip-c">GameFênix <span class="price">R$ 71,00</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="ofertas">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2>Ofertas em destaque</h2>
+          <p>Preços de exemplo reunidos de lojas parceiras fictícias, só pra mostrar como a comparação funciona.</p>
+          <p class="api-status" id="apiStatusMsg"><span class="dot"></span>Carregando ofertas…</p>
+        </div>
+        <select class="sort-select" id="sortSelect" aria-label="Ordenar por">
+          <option value="relevancia">Mais relevantes</option>
+          <option value="menor-preco">Menor preço primeiro</option>
+          <option value="maior-desconto">Maior desconto</option>
+          <option value="nome">Nome A-Z</option>
+        </select>
+      </div>
+
+      <div class="filters">
+        <div class="chip-row" id="chipRow">
+          <button class="chip active" data-platform="todos">Todos</button>
+          <button class="chip" data-platform="pc">PC</button>
+          <button class="chip" data-platform="playstation">PlayStation</button>
+          <button class="chip" data-platform="xbox">Xbox</button>
+          <button class="chip" data-platform="switch">Switch</button>
+        </div>
+      </div>
+
+      <div class="games-grid" id="gamesGrid"></div>
+    </div>
+  </section>
+
+  <section id="como-funciona">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2>Como funciona</h2>
+          <p>Três passos entre digitar o nome do jogo e escolher onde pagar.</p>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01 — busca</div>
+          <h3>Busque o jogo</h3>
+          <p>Digite o nome ou filtre por plataforma. O radar varre as lojas parceiras em segundos.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02 — comparação</div>
+          <h3>Compare lado a lado</h3>
+          <p>Veja preço, forma de pagamento aceita e prazo de entrega de cada loja, sem trocar de página.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03 — compra</div>
+          <h3>Pague como preferir</h3>
+          <p>Escolha a oferta e finalize direto na loja parceira, em cartão, boleto ou Pix.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pagamento">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2>Formas de pagamento aceitas</h2>
+          <p>As lojas parceiras do PixelRadar aceitam pelo menos uma destas três opções em cada oferta.</p>
+        </div>
+      </div>
+      <div class="pay-grid">
+        <div class="pay-card">
+          <div class="pay-icon-wrap"><svg width="22" height="22"><use href="#ic-card"/></svg></div>
+          <h3>Cartão de crédito ou débito</h3>
+          <p>Parcele em várias lojas parceiras e receba o jogo assim que o pagamento é aprovado.</p>
+        </div>
+        <div class="pay-card">
+          <div class="pay-icon-wrap"><svg width="22" height="22"><use href="#ic-barcode"/></svg></div>
+          <h3>Boleto bancário</h3>
+          <p>Compre sem cartão nem conta digital. A liberação do jogo acontece após a compensação.</p>
+        </div>
+        <div class="pay-card">
+          <div class="pay-icon-wrap"><svg width="22" height="22"><use href="#ic-bolt"/></svg></div>
+          <h3>Pix</h3>
+          <p>Pagamento instantâneo, disponível na maioria das ofertas, com entrega do jogo na hora.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="alerta">
+    <div class="wrap">
+      <div class="newsletter" id="alertaContainer"></div>
+      <div class="alertas-lista" id="listaAlertas"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a href="#topo" class="brand"><span class="dot"></span>Pixel<em>Radar</em></a>
+        <p>Comparador de preços de jogos digitais e físicos. Reunimos ofertas de lojas parceiras pra você decidir onde e como pagar.</p>
+      </div>
+      <div>
+        <h4>Site</h4>
+        <ul>
+          <li><a href="#ofertas">Ofertas</a></li>
+          <li><a href="#como-funciona">Como funciona</a></li>
+          <li><a href="#pagamento">Formas de pagamento</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Suporte</h4>
+        <ul>
+          <li><a href="#">Central de ajuda</a></li>
+          <li><a href="#">Fale com a gente</a></li>
+          <li><a href="#">Reportar preço errado</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 PixelRadar. Site conceitual — lojas, preços e ofertas exibidos são fictícios, apenas para demonstração.</span>
+      <span>Feito para comparar, não pra vender.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="modal-overlay" id="contaOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contaTitulo">
+    <button class="modal-close" id="contaFecharBtn" aria-label="Fechar"><svg width="18" height="18"><use href="#ic-close"/></svg></button>
+
+    <div id="areaAutenticacao">
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab active" data-tab="login">Entrar</button>
+        <button type="button" class="modal-tab" data-tab="cadastro">Criar conta</button>
+      </div>
+
+      <div class="modal-panel active" id="painelLogin">
+        <h3 id="contaTitulo">Que bom te ver de novo</h3>
+        <p class="modal-sub">Entre para gerenciar seus alertas de preço.</p>
+        <form id="formLogin">
+          <div class="campo">
+            <label for="loginEmail">E-mail</label>
+            <input type="email" id="loginEmail" required autocomplete="email">
+          </div>
+          <div class="campo">
+            <label for="loginSenha">Senha</label>
+            <input type="password" id="loginSenha" required autocomplete="current-password">
+          </div>
+          <p class="modal-erro" id="loginErro"></p>
+          <button type="submit" class="btn btn-primary">Entrar</button>
+        </form>
+      </div>
+
+      <div class="modal-panel" id="painelCadastro">
+        <h3>Criar conta gratuita</h3>
+        <p class="modal-sub">Só pedimos o essencial: nome, e-mail e senha.</p>
+        <form id="formCadastro">
+          <div class="campo">
+            <label for="cadastroNome">Nome</label>
+            <input type="text" id="cadastroNome" required autocomplete="name">
+          </div>
+          <div class="campo">
+            <label for="cadastroEmail">E-mail</label>
+            <input type="email" id="cadastroEmail" required autocomplete="email">
+          </div>
+          <div class="campo">
+            <label for="cadastroSenha">Senha (mínimo 8 caracteres)</label>
+            <input type="password" id="cadastroSenha" required minlength="8" autocomplete="new-password">
+          </div>
+          <label class="campo-check">
+            <input type="checkbox" id="cadastroTermos" required>
+            Li e aceito os Termos de Uso e a <button type="button" id="abrirPoliticaDoCadastro">Política de Privacidade</button>.
+          </label>
+          <label class="campo-check">
+            <input type="checkbox" id="cadastroMarketing">
+            Aceito receber e-mails ocasionais com promoções (opcional, você pode desativar quando quiser).
+          </label>
+          <p class="modal-erro" id="cadastroErro"></p>
+          <button type="submit" class="btn btn-primary">Criar minha conta</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="areaContaLogada" style="display:none;">
+      <div class="conta-info">
+        <span class="nome" id="contaNome"></span>
+        <span class="email" id="contaEmail"></span>
+      </div>
+      <div class="conta-acoes">
+        <button type="button" class="btn btn-ghost" id="botaoBaixarDados">Baixar meus dados (LGPD)</button>
+        <button type="button" class="btn btn-ghost" id="botaoVerPoliticaConta">Ver política de privacidade</button>
+        <button type="button" class="btn btn-sair" id="botaoSair">Sair da conta</button>
+        <button type="button" class="btn btn-excluir" id="botaoExcluirConta">Excluir minha conta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="politicaOverlay">
+  <div class="modal modal-wide">
+    <button class="modal-close" id="politicaFecharBtn" aria-label="Fechar"><svg width="18" height="18"><use href="#ic-close"/></svg></button>
+    <h3>Política de privacidade (resumo)</h3>
+    <p class="modal-sub">Este é um resumo em linguagem simples. Site conceitual, feito para demonstrar como um cadastro pode respeitar a LGPD.</p>
+    <div class="politica-texto">
+      <div>
+        <h4>O que coletamos</h4>
+        <p>Nome, e-mail e senha (a senha nunca é guardada em texto puro). Se você criar um alerta de preço, guardamos qual jogo e qual valor você escolheu.</p>
+      </div>
+      <div>
+        <h4>Por que coletamos</h4>
+        <p>Só para permitir login e para te avisar quando o preço de um jogo cair, que é a funcionalidade que você pediu ao criar a conta.</p>
+      </div>
+      <div>
+        <h4>Com quem compartilhamos</h4>
+        <p>Com ninguém. Os dados ficam apenas no banco de dados do PixelRadar.</p>
+      </div>
+      <div>
+        <h4>Seus direitos</h4>
+        <p>A qualquer momento, em "Minha conta", você pode baixar uma cópia dos seus dados ou excluir sua conta por completo.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ============================================================
+  // CONFIGURAÇÃO — troque pela URL da sua API depois de hospedá-la
+  // (veja o guia em pixelradar-backend/README.md). Enquanto estiver
+  // em branco, o site funciona só com os dados fictícios abaixo.
+  // Exemplo: "https://pixelradar-api.onrender.com"
+  // ============================================================
+  var API_BASE = "";
+
+  var gamesFallback = [
+    { id:1, title:"Elden Ring", platform:"pc", cover:"linear-gradient(135deg,#3a2a63,#8266ff)", priceFrom:6890, priceWas:24900,
+      stores:[
+        {name:"ByteZone", price:6890, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"NerdBit Store", price:7250, payment:["cartao","boleto","pix"], delivery:"imediata"},
+        {name:"GameFênix", price:7490, payment:["cartao","pix"], delivery:"até 10 min"},
+        {name:"PixelKey", price:7990, payment:["boleto","pix"], delivery:"imediata"},
+        {name:"ArcadeBR", price:8200, payment:["cartao"], delivery:"imediata"}
+      ]},
+    { id:2, title:"EA Sports FC 25", platform:"playstation", cover:"linear-gradient(135deg,#123a33,#2ee6c8)", priceFrom:14990, priceWas:29900,
+      stores:[
+        {name:"ChipStore", price:14990, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"ZetaGames", price:15590, payment:["cartao","boleto"], delivery:"até 30 min"},
+        {name:"ByteZone", price:16200, payment:["pix"], delivery:"imediata"},
+        {name:"Compufácil", price:16990, payment:["cartao","boleto","pix"], delivery:"imediata"}
+      ]},
+    { id:3, title:"God of War Ragnarök", platform:"playstation", cover:"linear-gradient(135deg,#3a1414,#ff3d81)", priceFrom:9990, priceWas:34900,
+      stores:[
+        {name:"GameFênix", price:9990, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"NerdBit Store", price:10450, payment:["cartao","boleto","pix"], delivery:"imediata"},
+        {name:"ArcadeBR", price:10990, payment:["cartao"], delivery:"até 15 min"},
+        {name:"PixelKey", price:11490, payment:["boleto","pix"], delivery:"imediata"}
+      ]},
+    { id:4, title:"Grand Theft Auto V", platform:"pc", cover:"linear-gradient(135deg,#2a2a2a,#ffc94a)", priceFrom:2990, priceWas:9900,
+      stores:[
+        {name:"Compufácil", price:2990, payment:["cartao","boleto","pix"], delivery:"imediata"},
+        {name:"ByteZone", price:3190, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"ChipStore", price:3390, payment:["pix"], delivery:"imediata"}
+      ]},
+    { id:5, title:"Minecraft", platform:"switch", cover:"linear-gradient(135deg,#123a1e,#2ee6c8)", priceFrom:8490, priceWas:14900,
+      stores:[
+        {name:"ZetaGames", price:8490, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"PixelKey", price:8890, payment:["cartao","boleto","pix"], delivery:"imediata"},
+        {name:"NerdBit Store", price:9190, payment:["cartao"], delivery:"até 20 min"}
+      ]},
+    { id:6, title:"Red Dead Redemption 2", platform:"xbox", cover:"linear-gradient(135deg,#3a2a14,#ff3d81)", priceFrom:6490, priceWas:19900,
+      stores:[
+        {name:"ArcadeBR", price:6490, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"GameFênix", price:6790, payment:["cartao","boleto"], delivery:"até 15 min"},
+        {name:"ByteZone", price:6990, payment:["pix"], delivery:"imediata"},
+        {name:"Compufácil", price:7290, payment:["cartao","boleto","pix"], delivery:"imediata"}
+      ]},
+    { id:7, title:"Cyberpunk 2077", platform:"pc", cover:"linear-gradient(135deg,#2a1440,#ff3d81)", priceFrom:5990, priceWas:19900,
+      stores:[
+        {name:"NerdBit Store", price:5990, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"ChipStore", price:6290, payment:["cartao","boleto","pix"], delivery:"imediata"},
+        {name:"PixelKey", price:6590, payment:["boleto"], delivery:"até 10 min"}
+      ]},
+    { id:8, title:"Cartão Steam Wallet R$100", platform:"pc", cover:"linear-gradient(135deg,#142840,#8266ff)", priceFrom:9490, priceWas:10000,
+      stores:[
+        {name:"ByteZone", price:9490, payment:["cartao","pix"], delivery:"imediata"},
+        {name:"ZetaGames", price:9650, payment:["cartao","boleto","pix"], delivery:"imediata"},
+        {name:"GameFênix", price:9790, payment:["pix"], delivery:"imediata"}
+      ]}
+  ];
+
+  // O que a API devolve em "games" no momento em que a página está pronta.
+  var games = [];
+
+  // Mapeia o "capa_estilo" que vem da API para o mesmo visual usado nos
+  // dados de exemplo, pra ficar tudo consistente independente da fonte.
+  var capaGradientes = {
+    "gradiente-violeta": "linear-gradient(135deg,#3a2a63,#8266ff)",
+    "gradiente-verde": "linear-gradient(135deg,#123a33,#2ee6c8)",
+    "gradiente-vermelho": "linear-gradient(135deg,#3a1414,#ff3d81)",
+    "gradiente-dourado": "linear-gradient(135deg,#2a2a2a,#ffc94a)",
+    "gradiente-verde-2": "linear-gradient(135deg,#123a1e,#2ee6c8)",
+    "gradiente-rosa": "linear-gradient(135deg,#3a2a14,#ff3d81)",
+    "gradiente-roxo": "linear-gradient(135deg,#2a1440,#ff3d81)",
+    "gradiente-azul": "linear-gradient(135deg,#142840,#8266ff)"
+  };
+
+  var payIcon = { cartao:"#ic-card", boleto:"#ic-barcode", pix:"#ic-bolt" };
+  var platformLabel = { pc:"PC", playstation:"PlayStation", xbox:"Xbox", switch:"Switch" };
+
+  function brl(cents){
+    return "R$ " + (cents/100).toFixed(2).replace(".", ",");
+  }
+
+  function storeRow(store){
+    var icons = store.payment.map(function(p){
+      return '<svg><use href="'+payIcon[p]+'"/></svg>';
+    }).join("");
+    return '<div class="store-row">' +
+      '<span class="store-name">' + store.name + '</span>' +
+      '<span class="pay-icons">' + icons + '</span>' +
+      '<span class="store-price mono">' + brl(store.price) + '</span>' +
+    '</div>';
+  }
+
+  function cardHTML(game){
+    var discount = Math.round((1 - game.priceFrom / game.priceWas) * 100);
+    var sorted = game.stores.slice().sort(function(a,b){ return a.price - b.price; });
+    var visible = sorted.slice(0,3);
+    var extra = sorted.slice(3);
+
+    var extraHTML = extra.length ? (
+      '<button class="toggle-btn" data-toggle="' + game.id + '">Ver mais ' + extra.length + ' loja' + (extra.length>1?'s':'') + '<svg><use href="#ic-chevron"/></svg></button>' +
+      '<div class="more-stores" id="more-' + game.id + '">' + extra.map(storeRow).join("") + '</div>'
+    ) : '';
+
+    return '<div class="game-card" data-platform="'+game.platform+'" data-title="'+game.title.toLowerCase()+'" data-price="'+game.priceFrom+'" data-discount="'+discount+'">' +
+      '<div class="cover" style="background:'+game.cover+'">' +
+        '<span class="tag">'+platformLabel[game.platform]+'</span>' +
+        '<span class="tag discount-tag">-'+discount+'%</span>' +
+        '<span class="cover-title">'+game.title+'</span>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<div class="price-row">' +
+          '<div>' +
+            '<div class="price-label">a partir de</div>' +
+            '<div class="price-now mono">'+brl(game.priceFrom)+'</div>' +
+          '</div>' +
+          '<div class="price-was mono">'+brl(game.priceWas)+'</div>' +
+        '</div>' +
+        '<div class="store-list">' +
+          visible.map(storeRow).join("") +
+          extraHTML +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  var grid = document.getElementById("gamesGrid");
+  var state = { platform:"todos", search:"", sort:"relevancia" };
+
+  function render(){
+    var list = games.filter(function(g){
+      var matchPlatform = state.platform === "todos" || g.platform === state.platform;
+      var matchSearch = g.title.toLowerCase().indexOf(state.search.toLowerCase()) !== -1;
+      return matchPlatform && matchSearch;
+    });
+
+    if(state.sort === "menor-preco"){
+      list.sort(function(a,b){ return a.priceFrom - b.priceFrom; });
+    } else if(state.sort === "nome"){
+      list.sort(function(a,b){ return a.title.localeCompare(b.title); });
+    } else if(state.sort === "maior-desconto"){
+      list.sort(function(a,b){
+        var da = Math.round((1-a.priceFrom/a.priceWas)*100);
+        var db = Math.round((1-b.priceFrom/b.priceWas)*100);
+        return db - da;
+      });
+    }
+
+    if(list.length === 0){
+      grid.innerHTML = '<div class="empty-state"><strong>Nenhum jogo encontrado</strong>Tente outro termo de busca ou remova o filtro de plataforma.</div>';
+      return;
+    }
+    grid.innerHTML = list.map(cardHTML).join("");
+  }
+
+  function fetchComTimeout(url, ms){
+    return new Promise(function(resolve, reject){
+      var esgotou = setTimeout(function(){ reject(new Error("tempo esgotado")); }, ms);
+      fetch(url).then(function(r){ clearTimeout(esgotou); resolve(r); }, function(erro){ clearTimeout(esgotou); reject(erro); });
+    });
+  }
+
+  function atualizarStatusApi(estado){
+    var el = document.getElementById("apiStatusMsg");
+    if(!el) return;
+    if(estado === "ligada"){
+      el.className = "api-status ligada";
+      el.innerHTML = '<span class="dot"></span>Conectado à API — preços ao vivo (dados fictícios)';
+    } else {
+      el.className = "api-status exemplo";
+      el.innerHTML = '<span class="dot"></span>Mostrando dados de exemplo (API ainda não conectada)';
+    }
+  }
+
+  async function carregarCatalogo(){
+    if(!API_BASE){
+      games = gamesFallback;
+      atualizarStatusApi("exemplo");
+      render();
+      renderizarAlerta();
+      return;
+    }
+    try {
+      var respostaJogos = await fetchComTimeout(API_BASE + "/api/v1/jogos", 6000);
+      if(!respostaJogos.ok) throw new Error("resposta não OK");
+      var dadosJogos = await respostaJogos.json();
+
+      var completos = await Promise.all(dadosJogos.jogos.map(async function(j){
+        var stores = [];
+        try {
+          var respOfertas = await fetchComTimeout(API_BASE + "/api/v1/jogos/" + j.id + "/lojas", 6000);
+          if(respOfertas.ok){
+            var dadosOfertas = await respOfertas.json();
+            stores = dadosOfertas.ofertas.map(function(o){
+              var payment = [];
+              if(o.aceita_cartao) payment.push("cartao");
+              if(o.aceita_boleto) payment.push("boleto");
+              if(o.aceita_pix) payment.push("pix");
+              return { name:o.loja, price:o.preco_centavos, payment:payment, delivery:o.prazo_entrega };
+            });
+          }
+        } catch(erroOfertas){ /* esse jogo fica sem lojas, os outros seguem normalmente */ }
+
+        return {
+          id: j.id,
+          title: j.titulo,
+          platform: j.plataforma,
+          cover: capaGradientes[j.capa_estilo] || "linear-gradient(135deg,#1c1633,#8266ff)",
+          priceFrom: j.menor_preco,
+          priceWas: j.preco_original_centavos,
+          stores: stores
+        };
+      }));
+
+      var comOfertas = completos.filter(function(g){ return g.stores.length > 0; });
+      if(comOfertas.length === 0) throw new Error("catálogo vazio");
+      games = comOfertas;
+      atualizarStatusApi("ligada");
+    } catch(erro){
+      games = gamesFallback;
+      atualizarStatusApi("exemplo");
+    }
+    render();
+    renderizarAlerta();
+  }
+
+  grid.innerHTML = '<div class="empty-state"><strong>Carregando ofertas…</strong>Buscando as melhores lojas parceiras.</div>';
+  carregarCatalogo();
+
+  // platform chips
+  document.getElementById("chipRow").addEventListener("click", function(e){
+    var chip = e.target.closest(".chip");
+    if(!chip) return;
+    document.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("active"); });
+    chip.classList.add("active");
+    state.platform = chip.dataset.platform;
+    render();
+  });
+
+  // sort
+  document.getElementById("sortSelect").addEventListener("change", function(e){
+    state.sort = e.target.value;
+    render();
+  });
+
+  // hero search form
+  document.getElementById("heroSearchForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    state.search = document.getElementById("heroSearch").value.trim();
+    var plat = document.getElementById("heroPlatform").value;
+    state.platform = plat;
+    document.querySelectorAll(".chip").forEach(function(c){
+      c.classList.toggle("active", c.dataset.platform === plat);
+    });
+    render();
+    document.getElementById("ofertas").scrollIntoView({ behavior:"smooth" });
+  });
+
+  // toggle extra stores (event delegation)
+  grid.addEventListener("click", function(e){
+    var btn = e.target.closest(".toggle-btn");
+    if(!btn) return;
+    var id = btn.dataset.toggle;
+    var panel = document.getElementById("more-" + id);
+    var open = panel.classList.toggle("open");
+    btn.classList.toggle("open", open);
+    btn.childNodes[0].textContent = open ? "Ver menos " : btn.dataset.label || btn.childNodes[0].textContent;
+  });
+
+  // mobile menu
+  var menuToggle = document.getElementById("menuToggle");
+  var mobilePanel = document.getElementById("mobilePanel");
+  menuToggle.addEventListener("click", function(){
+    var open = mobilePanel.classList.toggle("open");
+    menuToggle.setAttribute("aria-expanded", open);
+    menuToggle.innerHTML = open
+      ? '<svg width="22" height="22"><use href="#ic-close"/></svg>'
+      : '<svg width="22" height="22"><use href="#ic-menu"/></svg>';
+  });
+  mobilePanel.addEventListener("click", function(e){
+    if(e.target.tagName === "A"){
+      mobilePanel.classList.remove("open");
+      menuToggle.setAttribute("aria-expanded", false);
+      menuToggle.innerHTML = '<svg width="22" height="22"><use href="#ic-menu"/></svg>';
+    }
+  });
+
+  // ============================================================
+  // CONTA, LOGIN E ALERTAS DE PREÇO
+  // ============================================================
+
+  var auth = { token: null, usuario: null };
+
+  function primeiroNome(nomeCompleto){
+    return (nomeCompleto || "").split(" ")[0];
+  }
+
+  async function chamarApi(caminho, opcoes){
+    opcoes = opcoes || {};
+    var cabecalhos = Object.assign({ "Content-Type": "application/json" }, opcoes.headers || {});
+    if(auth.token) cabecalhos["Authorization"] = "Bearer " + auth.token;
+
+    var resposta;
+    try {
+      resposta = await fetch(API_BASE + caminho, Object.assign({}, opcoes, { headers: cabecalhos }));
+    } catch(erroRede){
+      throw new Error("Não foi possível conectar à API. Verifique se ela está no ar (veja o README do backend).");
+    }
+
+    var dados = null;
+    try { dados = await resposta.json(); } catch(erroJson){ dados = null; }
+
+    if(!resposta.ok){
+      throw new Error((dados && dados.erro) ? dados.erro : "Não foi possível completar a ação.");
+    }
+    return dados;
+  }
+
+  function salvarSessao(token, usuario){
+    auth.token = token;
+    auth.usuario = usuario;
+    atualizarUIConta();
+    renderizarAlerta();
+  }
+
+  function encerrarSessao(){
+    auth.token = null;
+    auth.usuario = null;
+    atualizarUIConta();
+    renderizarAlerta();
+    fecharContaModal();
+  }
+
+  function atualizarUIConta(){
+    document.querySelectorAll(".conta-btn").forEach(function(b){
+      b.textContent = auth.usuario ? primeiroNome(auth.usuario.nome) : "Entrar";
+    });
+    var areaAuth = document.getElementById("areaAutenticacao");
+    var areaConta = document.getElementById("areaContaLogada");
+    if(auth.usuario){
+      areaAuth.style.display = "none";
+      areaConta.style.display = "block";
+      document.getElementById("contaNome").textContent = auth.usuario.nome;
+      document.getElementById("contaEmail").textContent = auth.usuario.email;
+    } else {
+      areaAuth.style.display = "block";
+      areaConta.style.display = "none";
+    }
+  }
+
+  // ---------- modal de conta ----------
+  var contaOverlay = document.getElementById("contaOverlay");
+  var politicaOverlay = document.getElementById("politicaOverlay");
+
+  function mudarAbaConta(aba){
+    document.querySelectorAll(".modal-tab").forEach(function(t){
+      t.classList.toggle("active", t.dataset.tab === aba);
+    });
+    document.getElementById("painelLogin").classList.toggle("active", aba === "login");
+    document.getElementById("painelCadastro").classList.toggle("active", aba === "cadastro");
+  }
+
+  function abrirContaModal(aba){
+    atualizarUIConta();
+    if(!auth.usuario){ mudarAbaConta(aba || "login"); }
+    contaOverlay.classList.add("open");
+  }
+  function fecharContaModal(){ contaOverlay.classList.remove("open"); }
+  function abrirPoliticaModal(){ politicaOverlay.classList.add("open"); }
+  function fecharPoliticaModal(){ politicaOverlay.classList.remove("open"); }
+
+  document.querySelectorAll(".conta-btn").forEach(function(b){
+    b.addEventListener("click", function(){ abrirContaModal("login"); });
+  });
+  document.getElementById("contaFecharBtn").addEventListener("click", fecharContaModal);
+  contaOverlay.addEventListener("click", function(e){ if(e.target === contaOverlay) fecharContaModal(); });
+  document.querySelectorAll(".modal-tab").forEach(function(t){
+    t.addEventListener("click", function(){ mudarAbaConta(t.dataset.tab); });
+  });
+  document.getElementById("abrirPoliticaDoCadastro").addEventListener("click", abrirPoliticaModal);
+  document.getElementById("botaoVerPoliticaConta").addEventListener("click", abrirPoliticaModal);
+  document.getElementById("politicaFecharBtn").addEventListener("click", fecharPoliticaModal);
+  politicaOverlay.addEventListener("click", function(e){ if(e.target === politicaOverlay) fecharPoliticaModal(); });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){ fecharContaModal(); fecharPoliticaModal(); }
+  });
+
+  // ---------- login e cadastro ----------
+  document.getElementById("formLogin").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var erroEl = document.getElementById("loginErro");
+    erroEl.classList.remove("show");
+    if(!API_BASE){
+      erroEl.textContent = "A API ainda não foi configurada neste site (veja API_BASE no código-fonte).";
+      erroEl.classList.add("show");
+      return;
+    }
+    try {
+      var dados = await chamarApi("/api/v1/usuarios/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: document.getElementById("loginEmail").value,
+          senha: document.getElementById("loginSenha").value
+        })
+      });
+      salvarSessao(dados.token, dados.usuario);
+      fecharContaModal();
+      e.target.reset();
+    } catch(erro){
+      erroEl.textContent = erro.message;
+      erroEl.classList.add("show");
+    }
+  });
+
+  document.getElementById("formCadastro").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var erroEl = document.getElementById("cadastroErro");
+    erroEl.classList.remove("show");
+    if(!API_BASE){
+      erroEl.textContent = "A API ainda não foi configurada neste site (veja API_BASE no código-fonte).";
+      erroEl.classList.add("show");
+      return;
+    }
+    var aceite = document.getElementById("cadastroTermos").checked;
+    try {
+      var dados = await chamarApi("/api/v1/usuarios/cadastro", {
+        method: "POST",
+        body: JSON.stringify({
+          nome: document.getElementById("cadastroNome").value,
+          email: document.getElementById("cadastroEmail").value,
+          senha: document.getElementById("cadastroSenha").value,
+          aceite_termos: aceite,
+          aceite_privacidade: aceite,
+          aceite_marketing: document.getElementById("cadastroMarketing").checked
+        })
+      });
+      salvarSessao(dados.token, dados.usuario);
+      fecharContaModal();
+      e.target.reset();
+    } catch(erro){
+      erroEl.textContent = erro.message;
+      erroEl.classList.add("show");
+    }
+  });
+
+  document.getElementById("botaoSair").addEventListener("click", encerrarSessao);
+
+  document.getElementById("botaoBaixarDados").addEventListener("click", async function(){
+    try {
+      var dados = await chamarApi("/api/v1/usuarios/me/exportar");
+      var blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "meus-dados-pixelradar.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch(erro){
+      alert(erro.message);
+    }
+  });
+
+  document.getElementById("botaoExcluirConta").addEventListener("click", async function(){
+    var confirmar = window.confirm("Tem certeza? Sua conta e os seus alertas de preço serão apagados, e essa ação não pode ser desfeita.");
+    if(!confirmar) return;
+    try {
+      await chamarApi("/api/v1/usuarios/me", { method: "DELETE" });
+      encerrarSessao();
+      alert("Sua conta foi excluída.");
+    } catch(erro){
+      alert(erro.message);
+    }
+  });
+
+  // ---------- alertas de preço ----------
+  function renderizarAlerta(){
+    var container = document.getElementById("alertaContainer");
+
+    if(!auth.usuario){
+      container.innerHTML =
+        '<div>' +
+          '<h2>Avise quando o preço cair</h2>' +
+          '<p>Crie uma conta gratuita pra escolher um jogo e um preço-alvo. Avisamos assim que alguma loja parceira chegar lá.</p>' +
+          '<p class="newsletter-privacy-note">Pedimos só nome, e-mail e senha — nada além disso. ' +
+            '<button type="button" id="linkPoliticaAlerta">Veja o que fazemos com os seus dados</button>.</p>' +
+        '</div>' +
+        '<div class="newsletter-form-row">' +
+          '<button type="button" class="btn btn-primary" id="botaoAbrirCadastroAlerta">Criar conta gratuita</button>' +
+          '<button type="button" class="btn btn-ghost" id="botaoAbrirLoginAlerta">Já tenho conta</button>' +
+        '</div>';
+      document.getElementById("listaAlertas").innerHTML = "";
+      return;
+    }
+
+    var opcoesJogos = games.map(function(g){ return '<option value="' + g.id + '">' + g.title + '</option>'; }).join("");
+
+    container.innerHTML =
+      '<div>' +
+        '<h2>Olá, ' + primeiroNome(auth.usuario.nome) + '</h2>' +
+        '<p>Escolha um jogo e um preço-alvo. Avisamos assim que alguma loja parceira chegar lá.</p>' +
+        '<div class="newsletter-msg" id="alertaMsg"></div>' +
+      '</div>' +
+      '<form id="formAlerta" class="newsletter-form-row">' +
+        '<select id="alertaJogo" required aria-label="Jogo">' + opcoesJogos + '</select>' +
+        '<input type="number" id="alertaPreco" min="1" step="0.01" placeholder="Preço-alvo (R$)" required aria-label="Preço-alvo em reais">' +
+        '<button type="submit" class="btn btn-primary">Criar alerta</button>' +
+      '</form>';
+
+    carregarAlertasUsuario();
+  }
+
+  document.getElementById("alertaContainer").addEventListener("click", function(e){
+    if(e.target.id === "botaoAbrirCadastroAlerta"){ abrirContaModal("cadastro"); }
+    if(e.target.id === "botaoAbrirLoginAlerta"){ abrirContaModal("login"); }
+    if(e.target.id === "linkPoliticaAlerta"){ abrirPoliticaModal(); }
+  });
+
+  document.getElementById("alertaContainer").addEventListener("submit", async function(e){
+    if(e.target.id !== "formAlerta") return;
+    e.preventDefault();
+    var msg = document.getElementById("alertaMsg");
+    var jogoId = document.getElementById("alertaJogo").value;
+    var precoReais = parseFloat(document.getElementById("alertaPreco").value);
+
+    if(!jogoId || !precoReais || precoReais <= 0){
+      msg.textContent = "Escolha um jogo e um preço-alvo válido.";
+      msg.className = "newsletter-msg show erro";
+      return;
+    }
+
+    try {
+      await chamarApi("/api/v1/alertas", {
+        method: "POST",
+        body: JSON.stringify({
+          jogo_id: isNaN(Number(jogoId)) ? jogoId : Number(jogoId),
+          preco_alvo_centavos: Math.round(precoReais * 100)
+        })
+      });
+      msg.textContent = "Alerta criado! Vamos te avisar quando o preço cair.";
+      msg.className = "newsletter-msg show";
+      e.target.reset();
+      carregarAlertasUsuario();
+    } catch(erro){
+      msg.textContent = erro.message;
+      msg.className = "newsletter-msg show erro";
+    }
+  });
+
+  async function carregarAlertasUsuario(){
+    var lista = document.getElementById("listaAlertas");
+    if(!auth.usuario){ lista.innerHTML = ""; return; }
+    try {
+      var dados = await chamarApi("/api/v1/alertas");
+      if(!dados.alertas.length){ lista.innerHTML = ""; return; }
+      lista.innerHTML = dados.alertas.map(function(a){
+        return '<div class="alerta-item" data-id="' + a.id + '">' +
+          '<span class="info"><strong>' + a.titulo + '</strong> — avisar abaixo de ' + brl(a.preco_alvo_centavos) + '</span>' +
+          '<button type="button" class="excluir-alerta" data-id="' + a.id + '">Remover</button>' +
+        '</div>';
+      }).join("");
+    } catch(erro){
+      lista.innerHTML = "";
+    }
+  }
+
+  document.getElementById("listaAlertas").addEventListener("click", async function(e){
+    var btn = e.target.closest(".excluir-alerta");
+    if(!btn) return;
+    try {
+      await chamarApi("/api/v1/alertas/" + btn.dataset.id, { method: "DELETE" });
+      carregarAlertasUsuario();
+    } catch(erro){
+      alert(erro.message);
+    }
+  });
+
+  atualizarUIConta();
+  renderizarAlerta();
+})();
+</script>
+</body>
+</html>
