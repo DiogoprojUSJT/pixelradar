@@ -8,6 +8,8 @@ const lojasRotas = require('./src/rotas/lojas');
 const usuariosRotas = require('./src/rotas/usuarios');
 const alertasRotas = require('./src/rotas/alertas');
 const privacidadeRotas = require('./src/rotas/privacidade');
+const carrinhoRotas = require('./src/rotas/carrinho');
+const pedidosRotas = require('./src/rotas/pedidos');
 
 const app = express();
 
@@ -36,6 +38,12 @@ app.get('/api/v1', (req, res) => {
       'GET /api/v1/lojas',
       'POST /api/v1/usuarios/cadastro',
       'POST /api/v1/usuarios/login',
+      'POST /api/v1/carrinho/resumo',
+      'POST /api/v1/carrinho/ir-para-loja',
+      'POST /api/v1/pedidos',
+      'GET /api/v1/pedidos',
+      'POST /api/v1/pedidos/:id/pagar-simulado',
+      'POST /api/v1/pedidos/:id/cancelar',
       'GET /api/v1/usuarios/me',
       'PUT /api/v1/usuarios/me',
       'GET /api/v1/usuarios/me/exportar',
@@ -54,6 +62,8 @@ app.use('/api/v1/lojas', lojasRotas);
 app.use('/api/v1/usuarios', usuariosRotas);
 app.use('/api/v1/alertas', alertasRotas);
 app.use('/api/v1/privacidade', privacidadeRotas);
+app.use('/api/v1/carrinho', carrinhoRotas);
+app.use('/api/v1/pedidos', pedidosRotas);
 
 app.use((req, res) => {
   res.status(404).json({ erro: 'Rota não encontrada.' });

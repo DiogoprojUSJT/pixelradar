@@ -21,4 +21,13 @@ const limitadorCodigos = rateLimit({
   message: { erro: 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.' }
 });
 
-module.exports = { limitadorAutenticacao, limitadorCodigos };
+// Carrinho e pedidos: mais folgado que o login, mas ainda protegido contra abuso.
+const limitadorCarrinho = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas requisições em pouco tempo. Aguarde alguns minutos e tente novamente.' }
+});
+
+module.exports = { limitadorAutenticacao, limitadorCodigos, limitadorCarrinho };

@@ -436,11 +436,23 @@ router.get('/me/exportar', autenticar, async (req, res, next) => {
       [req.usuarioId]
     );
 
+    const pedidos = await pool.query(
+      `select p.id, l.nome as loja, p.forma_pagamento, p.status, p.total_centavos, p.criado_em, p.pago_em,
+              coalesce((select json_agg(json_build_object(
+                'titulo', i.titulo, 'plataforma', i.plataforma,
+                'preco_centavos', i.preco_centavos, 'quantidade', i.quantidade) order by i.id)
+               from itens_pedido i where i.pedido_id = p.id), '[]'::json) as itens
+       from pedidos p join lojas l on l.id = p.loja_id
+       where p.usuario_id = $1 order by p.criado_em asc`,
+      [req.usuarioId]
+    );
+
     res.setHeader('Content-Disposition', 'attachment; filename="meus-dados-pixelradar.json"');
     res.json({
       exportado_em: new Date().toISOString(),
       usuario: usuario.rows[0],
       alertas_de_preco: alertas.rows,
+      pedidos: pedidos.rows,
       historico_de_consentimento: consentimentos.rows
     });
   } catch (erro) {

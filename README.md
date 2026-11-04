@@ -45,6 +45,12 @@ Documentação completa "viva" em `GET /api/v1` (lista todas as rotas).
 | `PUT /api/v1/usuarios/me/senha` | Troca a senha estando logado | Sim |
 | `GET /api/v1/usuarios/me/exportar` | Baixa uma cópia dos seus dados (LGPD) | Sim |
 | `DELETE /api/v1/usuarios/me` | Exclui a conta (LGPD) | Sim |
+| `POST /api/v1/carrinho/resumo` | Recalcula o carrinho com os preços atuais, agrupado por loja | Não |
+| `POST /api/v1/carrinho/ir-para-loja` | Registra o clique (anônimo) e devolve o site da loja | Não |
+| `POST /api/v1/pedidos` | Cria um pedido de uma loja (pagamento simulado) | Sim |
+| `GET /api/v1/pedidos` | Histórico de pedidos da conta | Sim |
+| `POST /api/v1/pedidos/:id/pagar-simulado` | Confirma o pagamento de demonstração (Pix/boleto) | Sim |
+| `POST /api/v1/pedidos/:id/cancelar` | Cancela um pedido que ainda aguarda pagamento | Sim |
 | `GET /api/v1/alertas` | Lista os alertas de preço da conta | Sim |
 | `POST /api/v1/alertas` | Cria um alerta de preço | Sim |
 
@@ -140,7 +146,60 @@ Depois do login, o site guarda o token no `localStorage`
 página. "Sair" apaga o token. Um token inválido ou expirado é descartado
 automaticamente.
 
-## 5. Aviso sobre os dados
+## 5. Carrinho, pedidos e comissão
+
+**Como funciona hoje (demonstração):**
+
+- O botão **+** ao lado de cada loja coloca a oferta no carrinho. O carrinho
+  fica só no navegador (`localStorage`, chave `pixelradar_carrinho`) e guarda
+  apenas "qual oferta" e "quantas unidades". Preços, lojas e totais são sempre
+  recalculados pela API; o que o navegador mandar sobre preço é ignorado.
+- O carrinho é **agrupado por loja**, porque cada compra acontece em uma loja
+  por vez. Para cada loja há dois caminhos:
+  1. **Pagar pelo PixelRadar (demonstração):** exige login, mostra só as
+     formas de pagamento que a loja aceita para todos os itens e cria o
+     pedido. Pix e boleto geram um código de exemplo (sem valor real) e um
+     botão "Simular pagamento"; cartão é aprovado na hora. **Nenhum dado de
+     cartão é pedido ou guardado.**
+  2. **Ir para o site da loja:** registra o clique (sem usuário e sem IP) e
+     abre o site da loja com `?ref=pixelradar&clique=<id>`. Nas lojas
+     fictícias não há site, então o site só explica o que aconteceria.
+- Cada pedido grava a comissão do momento (`lojas.comissao_percentual`,
+  padrão 5%). Mudar a porcentagem depois não altera pedidos antigos.
+
+**Configurar uma loja** (SQL Editor do Neon):
+
+```sql
+update lojas set comissao_percentual = 7.5, site_url = 'https://www.loja-exemplo.com.br' where nome = 'ByteZone';
+```
+
+**Ver a comissão acumulada** (pedidos pagos) e os cliques por loja:
+
+```sql
+select l.nome, count(*) as pedidos, sum(p.total_centavos)/100.0 as vendas_reais, sum(p.comissao_centavos)/100.0 as comissao_reais
+from pedidos p join lojas l on l.id = p.loja_id
+where p.status = 'pago' group by l.nome order by comissao_reais desc;
+
+select l.nome, count(*) as cliques from cliques_loja c join lojas l on l.id = c.loja_id group by l.nome order by cliques desc;
+```
+
+**Atualizando um banco que já existe:** cole `db/migracao_carrinho.sql` no SQL
+Editor do Neon e execute uma vez. Ele só adiciona colunas e tabelas (pode
+repetir sem problema) e não apaga nenhum dado.
+
+**Para virar um negócio de verdade** (fora do escopo desta demonstração):
+
+- *Comissão por indicação:* exige contrato ou programa de afiliados com cada
+  loja (ou uma rede de afiliados). A loja informa as vendas que vieram do seu
+  link e paga a comissão; o `clique` do link serve para conciliar.
+- *Vender e cobrar pelo próprio site:* exige um gateway com divisão de
+  pagamento (split) para repassar à loja, tratamento de nota fiscal,
+  atendimento e regras do Código de Defesa do Consumidor (como o direito de
+  arrependimento) e conformidade de segurança de cartões (PCI, que o gateway
+  assume se o cartão nunca passar pelo seu servidor). Vale consultar um
+  contador e um advogado antes.
+
+## 6. Aviso sobre os dados
 
 Os jogos, lojas e preços são **fictícios**, criados só para o site ter
 conteúdo para mostrar (veja `db/seed.sql`). Para usar dados reais, troque o

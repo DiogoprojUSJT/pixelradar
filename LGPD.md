@@ -89,6 +89,25 @@ simples dentro do painel "Minha conta": **Baixar meus dados** e
   próprio navegador da pessoa, para manter o login ao recarregar; "Sair"
   apaga. Nada de dados pessoais além do identificador vai dentro do token.
 
+### 4.2 Carrinho, pedidos e cliques para as lojas
+
+- **Carrinho no navegador:** guarda só o número da oferta e a quantidade.
+  Nada pessoal vai para o servidor enquanto a pessoa não confirma um pedido.
+- **Pedido (demonstração):** exige login e guarda apenas loja, jogos, valores,
+  forma de pagamento escolhida, situação e datas. **Não pedimos nem guardamos
+  número de cartão**, endereço, CPF ou telefone.
+- **Guarda após excluir a conta:** os pedidos continuam no banco, mas ligados
+  a uma conta já anonimizada (sem nome nem e-mail), como registro das
+  transações (art. 16, I). Em um negócio real, o prazo de guarda segue as
+  obrigações fiscais e deve ser definido com um contador.
+- **Portabilidade:** `GET /usuarios/me/exportar` inclui os pedidos da pessoa.
+- **Cliques em "Ir para o site da loja":** a tabela `cliques_loja` guarda só a
+  loja e a hora, sem usuário, IP ou conteúdo do carrinho. A comissão por
+  indicação é conciliada com o código do clique que vai no link para a loja.
+- **Transparência:** o carrinho avisa que o PixelRadar recebe comissão da
+  loja, sem custo extra para quem compra, e a Política de Privacidade do site
+  descreve essa coleta.
+
 ## 5. Registro de consentimento (accountability — art. 6º, X)
 
 A tabela `log_consentimento` guarda, para cada usuário: o tipo de aceite
@@ -120,6 +139,9 @@ massivo. Antes de lançar de verdade, vale considerar:
 - Confirmação de e-mail no cadastro (hoje a confirmação por código existe
   só na troca de e-mail; no cadastro ainda é possível usar um e-mail
   inventado).
+- Para vender de verdade pelo site: gateway de pagamento com divisão de
+  pagamento, nota fiscal, política de reembolso e contrato com as lojas; o
+  pagamento aqui é apenas simulado.
 - Verificar um domínio na Resend (sem isso, só o dono da conta Resend
   recebe e-mails).
 - Um encarregado de dados (DPO) definido e um canal de contato visível na
