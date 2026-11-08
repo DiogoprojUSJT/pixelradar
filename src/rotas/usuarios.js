@@ -21,20 +21,20 @@ const {
   codigoComFormatoValido,
   expiraEm
 } = require('../utils/codigo');
-
+ 
 const router = express.Router();
-
+ 
 // Nunca guardamos o IP em texto puro: aplicamos hash (minimização de dados,
 // art. 6º da LGPD) e usamos só para investigar abuso, se necessário.
 function hashIp(ip) {
   return crypto.createHash('sha256').update(String(ip || '')).digest('hex');
 }
-
+ 
 // POST /api/v1/usuarios/cadastro
 router.post('/cadastro', limitadorAutenticacao, async (req, res, next) => {
   try {
     const { nome, email, senha, aceite_termos, aceite_privacidade, aceite_marketing } = req.body || {};
-
+ 
     if (!nome || typeof nome !== 'string' || nome.trim().length < 2) {
       return res.status(400).json({ erro: 'Informe um nome válido.' });
     }
@@ -51,17 +51,17 @@ router.post('/cadastro', limitadorAutenticacao, async (req, res, next) => {
         erro: 'É necessário aceitar os Termos de Uso e a Política de Privacidade para criar uma conta.'
       });
     }
-
+ 
     const emailNormalizado = email.trim().toLowerCase();
     const existe = await pool.query('select id from usuarios where email = $1', [emailNormalizado]);
     if (existe.rows.length > 0) {
       return res.status(409).json({ erro: 'Já existe uma conta com este e-mail.' });
     }
-
+ 
     const senhaHash = gerarHash(senha);
     const agora = new Date();
     const marketingConsentido = aceite_marketing === true;
-
+ 
     const resultado = await pool.query(
       `insert into usuarios
         (nome, email, senha_hash, termos_versao, termos_aceito_em,
@@ -80,10 +80,10 @@ router.post('/cadastro', limitadorAutenticacao, async (req, res, next) => {
         marketingConsentido ? agora : null
       ]
     );
-
+ 
     const usuario = resultado.rows[0];
     const ipHash = hashIp(req.ip);
-
+ 
     // Registro de auditoria do consentimento (accountability, art. 6º, X da LGPD)
     await pool.query(
       `insert into log_consentimento (usuario_id, tipo, versao_documento, aceito, ip_hash) values
@@ -92,14 +92,14 @@ router.post('/cadastro', limitadorAutenticacao, async (req, res, next) => {
        ($1, 'marketing', $4, $5, $3)`,
       [usuario.id, VERSAO_TERMOS_USO, ipHash, VERSAO_POLITICA_PRIVACIDADE, marketingConsentido]
     );
-
+ 
     const token = gerarToken(usuario.id);
     res.status(201).json({ token, usuario });
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // POST /api/v1/usuarios/login
 router.post('/login', limitadorAutenticacao, async (req, res, next) => {
   try {
@@ -107,26 +107,26 @@ router.post('/login', limitadorAutenticacao, async (req, res, next) => {
     if (!emailValido(email) || !senha) {
       return res.status(400).json({ erro: 'Informe e-mail e senha.' });
     }
-
+ 
     const emailNormalizado = email.trim().toLowerCase();
     const resultado = await pool.query(
       'select id, nome, email, senha_hash from usuarios where email = $1 and excluido_em is null',
       [emailNormalizado]
     );
     const usuario = resultado.rows[0];
-
+ 
     if (!usuario || !verificarSenha(senha, usuario.senha_hash)) {
       // Mensagem genérica de propósito: não revela se o e-mail existe ou não.
       return res.status(401).json({ erro: 'E-mail ou senha incorretos.' });
     }
-
+ 
     const token = gerarToken(usuario.id);
     res.json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email } });
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // POST /api/v1/usuarios/esqueci-senha  { email }
 // Envia um código de 6 dígitos para o e-mail cadastrado (válido por 15 min).
 router.post('/esqueci-senha', limitadorCodigos, async (req, res, next) => {
@@ -135,22 +135,22 @@ router.post('/esqueci-senha', limitadorCodigos, async (req, res, next) => {
     if (!emailValido(email)) {
       return res.status(400).json({ erro: 'Informe um e-mail válido.' });
     }
-
+ 
     const emailNormalizado = email.trim().toLowerCase();
     const resultado = await pool.query(
       'select id, redefinicao_enviado_em from usuarios where email = $1 and excluido_em is null',
       [emailNormalizado]
     );
     const usuario = resultado.rows[0];
-
+ 
     // Resposta sempre igual, exista a conta ou não: ninguém consegue usar este
     // formulário para descobrir quem está cadastrado.
     const respostaPadrao = {
       mensagem: 'Se esse e-mail estiver cadastrado, enviamos um código de 6 dígitos. Ele vale por 15 minutos.'
     };
-
+ 
     if (!usuario) return res.json(respostaPadrao);
-
+ 
     // Intervalo mínimo entre envios (evita encher a caixa de e-mail de alguém).
     if (
       usuario.redefinicao_enviado_em &&
@@ -158,7 +158,7 @@ router.post('/esqueci-senha', limitadorCodigos, async (req, res, next) => {
     ) {
       return res.json(respostaPadrao);
     }
-
+ 
     const codigo = gerarCodigo();
     await pool.query(
       `update usuarios
@@ -167,7 +167,7 @@ router.post('/esqueci-senha', limitadorCodigos, async (req, res, next) => {
        where id = $3`,
       [hashCodigo(usuario.id, 'redefinir_senha', codigo), expiraEm(), usuario.id]
     );
-
+ 
     // Sem "await" de propósito: a resposta sai na mesma velocidade exista a
     // conta ou não (evita descobrir contas pelo tempo de resposta).
     enviarCodigoRedefinicaoSenha(emailNormalizado, codigo)
@@ -182,13 +182,13 @@ router.post('/esqueci-senha', limitadorCodigos, async (req, res, next) => {
         );
       })
       .catch((erro) => console.error('Erro ao finalizar envio do código:', erro.message));
-
+ 
     res.json(respostaPadrao);
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // POST /api/v1/usuarios/redefinir-senha  { email, codigo, nova_senha }
 router.post('/redefinir-senha', limitadorCodigos, async (req, res, next) => {
   try {
@@ -199,9 +199,9 @@ router.post('/redefinir-senha', limitadorCodigos, async (req, res, next) => {
     if (!senhaValida(nova_senha)) {
       return res.status(400).json({ erro: 'A nova senha precisa ter pelo menos 8 caracteres.' });
     }
-
+ 
     const erroCodigo = { erro: 'Código inválido ou expirado. Peça um novo código.' };
-
+ 
     // Consome uma tentativa ANTES de conferir o código, numa única operação
     // atômica: mesmo com vários palpites ao mesmo tempo, o limite vale.
     const consumo = await pool.query(
@@ -216,11 +216,11 @@ router.post('/redefinir-senha', limitadorCodigos, async (req, res, next) => {
     );
     const usuario = consumo.rows[0];
     if (!usuario) return res.status(400).json(erroCodigo);
-
+ 
     if (!codigoConfere(usuario.id, 'redefinir_senha', codigo, usuario.redefinicao_codigo_hash)) {
       return res.status(400).json(erroCodigo);
     }
-
+ 
     await pool.query(
       `update usuarios
        set senha_hash = $1, redefinicao_codigo_hash = null, redefinicao_expira_em = null,
@@ -228,13 +228,13 @@ router.post('/redefinir-senha', limitadorCodigos, async (req, res, next) => {
        where id = $2`,
       [gerarHash(nova_senha), usuario.id]
     );
-
+ 
     res.json({ mensagem: 'Senha redefinida! Você já pode entrar com a nova senha.' });
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // POST /api/v1/usuarios/me/email/solicitar  { novo_email, senha_atual }
 // Passo 1 da troca de e-mail: confirma a senha e manda um código para o
 // NOVO endereço (assim ninguém fica trancado fora por um e-mail digitado errado).
@@ -244,35 +244,35 @@ router.post('/me/email/solicitar', autenticar, limitadorCodigos, async (req, res
     if (!emailValido(novo_email)) {
       return res.status(400).json({ erro: 'Informe um e-mail válido.' });
     }
-
+ 
     const resultado = await pool.query(
       'select id, email, senha_hash, novo_email_enviado_em from usuarios where id = $1 and excluido_em is null',
       [req.usuarioId]
     );
     const usuario = resultado.rows[0];
     if (!usuario) return res.status(404).json({ erro: 'Usuário não encontrado.' });
-
+ 
     if (!verificarSenha(senha_atual || '', usuario.senha_hash)) {
       return res.status(401).json({ erro: 'Senha atual incorreta.' });
     }
-
+ 
     const novoEmail = novo_email.trim().toLowerCase();
     if (novoEmail === usuario.email) {
       return res.status(400).json({ erro: 'Esse já é o e-mail da sua conta.' });
     }
-
+ 
     if (
       usuario.novo_email_enviado_em &&
       Date.now() - new Date(usuario.novo_email_enviado_em).getTime() < INTERVALO_REENVIO_SEGUNDOS * 1000
     ) {
       return res.status(429).json({ erro: 'Aguarde um minuto antes de pedir outro código.' });
     }
-
+ 
     const emUso = await pool.query('select id from usuarios where email = $1', [novoEmail]);
     if (emUso.rows.length > 0) {
       return res.status(409).json({ erro: 'Esse e-mail já está em uso por outra conta.' });
     }
-
+ 
     const codigo = gerarCodigo();
     await pool.query(
       `update usuarios
@@ -281,7 +281,7 @@ router.post('/me/email/solicitar', autenticar, limitadorCodigos, async (req, res
        where id = $4`,
       [novoEmail, hashCodigo(usuario.id, 'novo_email', codigo), expiraEm(), usuario.id]
     );
-
+ 
     const enviado = await enviarCodigoNovoEmail(novoEmail, codigo);
     if (!enviado) {
       await pool.query(
@@ -293,13 +293,13 @@ router.post('/me/email/solicitar', autenticar, limitadorCodigos, async (req, res
       );
       return res.status(502).json({ erro: 'Não conseguimos enviar o e-mail agora. Tente de novo em instantes.' });
     }
-
+ 
     res.json({ mensagem: `Enviamos um código de 6 dígitos para ${novoEmail}. Ele vale por 15 minutos.` });
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // POST /api/v1/usuarios/me/email/confirmar  { codigo }
 // Passo 2: com o código certo, o e-mail muda na hora.
 router.post('/me/email/confirmar', autenticar, limitadorCodigos, async (req, res, next) => {
@@ -308,9 +308,9 @@ router.post('/me/email/confirmar', autenticar, limitadorCodigos, async (req, res
     if (!codigoComFormatoValido(codigo)) {
       return res.status(400).json({ erro: 'Informe o código de 6 dígitos.' });
     }
-
+ 
     const erroCodigo = { erro: 'Código inválido ou expirado. Peça um novo código.' };
-
+ 
     const consumo = await pool.query(
       `update usuarios
        set novo_email_tentativas = novo_email_tentativas + 1
@@ -323,11 +323,11 @@ router.post('/me/email/confirmar', autenticar, limitadorCodigos, async (req, res
     );
     const usuario = consumo.rows[0];
     if (!usuario) return res.status(400).json(erroCodigo);
-
+ 
     if (!codigoConfere(usuario.id, 'novo_email', codigo, usuario.novo_email_codigo_hash)) {
       return res.status(400).json(erroCodigo);
     }
-
+ 
     let atualizado;
     try {
       atualizado = await pool.query(
@@ -345,16 +345,16 @@ router.post('/me/email/confirmar', autenticar, limitadorCodigos, async (req, res
       }
       throw erro;
     }
-
+ 
     // Aviso de segurança para o e-mail antigo (não bloqueia a resposta).
     enviarAvisoEmailAlterado(usuario.email).catch(() => {});
-
+ 
     res.json({ mensagem: 'E-mail atualizado!', usuario: atualizado.rows[0] });
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // PUT /api/v1/usuarios/me/senha — trocar a senha estando logado
 router.put('/me/senha', autenticar, limitadorAutenticacao, async (req, res, next) => {
   try {
@@ -380,7 +380,7 @@ router.put('/me/senha', autenticar, limitadorAutenticacao, async (req, res, next
     next(erro);
   }
 });
-
+ 
 // GET /api/v1/usuarios/me — direito de confirmação e acesso (art. 18, I e II)
 router.get('/me', autenticar, async (req, res, next) => {
   try {
@@ -395,7 +395,7 @@ router.get('/me', autenticar, async (req, res, next) => {
     next(erro);
   }
 });
-
+ 
 // PUT /api/v1/usuarios/me — direito de correção (art. 18, III)
 router.put('/me', autenticar, async (req, res, next) => {
   try {
@@ -415,7 +415,7 @@ router.put('/me', autenticar, async (req, res, next) => {
     next(erro);
   }
 });
-
+ 
 // GET /api/v1/usuarios/me/exportar — direito de portabilidade (art. 18, V)
 router.get('/me/exportar', autenticar, async (req, res, next) => {
   try {
@@ -425,7 +425,7 @@ router.get('/me/exportar', autenticar, async (req, res, next) => {
       [req.usuarioId]
     );
     if (!usuario.rows[0]) return res.status(404).json({ erro: 'Usuário não encontrado.' });
-
+ 
     const alertas = await pool.query(
       'select id, jogo_id, preco_alvo_centavos, criado_em from alertas_preco where usuario_id = $1',
       [req.usuarioId]
@@ -435,7 +435,7 @@ router.get('/me/exportar', autenticar, async (req, res, next) => {
        from log_consentimento where usuario_id = $1 order by criado_em asc`,
       [req.usuarioId]
     );
-
+ 
     const pedidos = await pool.query(
       `select p.id, l.nome as loja, p.forma_pagamento, p.status, p.total_centavos, p.criado_em, p.pago_em,
               coalesce((select json_agg(json_build_object(
@@ -446,12 +446,21 @@ router.get('/me/exportar', autenticar, async (req, res, next) => {
        where p.usuario_id = $1 order by p.criado_em asc`,
       [req.usuarioId]
     );
-
+ 
+    const carrinhoSalvo = await pool.query(
+      `select j.titulo, l.nome as loja, ci.quantidade
+       from carrinho_itens ci join ofertas o on o.id = ci.oferta_id
+       join jogos j on j.id = o.jogo_id join lojas l on l.id = o.loja_id
+       where ci.usuario_id = $1 order by ci.atualizado_em asc`,
+      [req.usuarioId]
+    );
+ 
     res.setHeader('Content-Disposition', 'attachment; filename="meus-dados-pixelradar.json"');
     res.json({
       exportado_em: new Date().toISOString(),
       usuario: usuario.rows[0],
       alertas_de_preco: alertas.rows,
+      carrinho: carrinhoSalvo.rows,
       pedidos: pedidos.rows,
       historico_de_consentimento: consentimentos.rows
     });
@@ -459,7 +468,7 @@ router.get('/me/exportar', autenticar, async (req, res, next) => {
     next(erro);
   }
 });
-
+ 
 // DELETE /api/v1/usuarios/me — direito de eliminação (art. 18, VI)
 router.delete('/me', autenticar, async (req, res, next) => {
   try {
@@ -475,12 +484,13 @@ router.delete('/me', autenticar, async (req, res, next) => {
       [emailAnonimo, req.usuarioId]
     );
     await pool.query('delete from alertas_preco where usuario_id = $1', [req.usuarioId]);
+    await pool.query('delete from carrinho_itens where usuario_id = $1', [req.usuarioId]);
     res.json({ mensagem: 'Sua conta e os seus dados pessoais foram removidos.' });
   } catch (erro) {
     next(erro);
   }
 });
-
+ 
 // POST /api/v1/usuarios/me/revogar-consentimento — art. 8º, §5º da LGPD
 router.post('/me/revogar-consentimento', autenticar, async (req, res, next) => {
   try {
@@ -495,5 +505,5 @@ router.post('/me/revogar-consentimento', autenticar, async (req, res, next) => {
     next(erro);
   }
 });
-
+ 
 module.exports = router;
