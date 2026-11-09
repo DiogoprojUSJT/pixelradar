@@ -91,8 +91,11 @@ simples dentro do painel "Minha conta": **Baixar meus dados** e
 
 ### 4.2 Carrinho, pedidos e cliques para as lojas
 
-- **Carrinho no navegador:** guarda só o número da oferta e a quantidade.
-  Nada pessoal vai para o servidor enquanto a pessoa não confirma um pedido.
+- **Carrinho:** guarda só o número da oferta e a quantidade. Sem login, fica
+  apenas no navegador. Com login, fica salvo na conta (`carrinho_itens`) para
+  voltar no próximo acesso. Ao sair, o carrinho é removido da tela e do
+  navegador. Ele é apagado do servidor se a conta for excluída e consta na
+  exportação dos dados.
 - **Pedido (demonstração):** exige login e guarda apenas loja, jogos, valores,
   forma de pagamento escolhida, situação e datas. **Não pedimos nem guardamos
   número de cartão**, endereço, CPF ou telefone.

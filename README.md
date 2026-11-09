@@ -45,6 +45,7 @@ Documentação completa "viva" em `GET /api/v1` (lista todas as rotas).
 | `PUT /api/v1/usuarios/me/senha` | Troca a senha estando logado | Sim |
 | `GET /api/v1/usuarios/me/exportar` | Baixa uma cópia dos seus dados (LGPD) | Sim |
 | `DELETE /api/v1/usuarios/me` | Exclui a conta (LGPD) | Sim |
+| `GET /api/v1/carrinho` / `PUT /api/v1/carrinho` | Lê / salva o carrinho da conta logada | Sim |
 | `POST /api/v1/carrinho/resumo` | Recalcula o carrinho com os preços atuais, agrupado por loja | Não |
 | `POST /api/v1/carrinho/ir-para-loja` | Registra o clique (anônimo) e devolve o site da loja | Não |
 | `POST /api/v1/pedidos` | Cria um pedido de uma loja (pagamento simulado) | Sim |
@@ -150,10 +151,17 @@ automaticamente.
 
 **Como funciona hoje (demonstração):**
 
-- O botão **+** ao lado de cada loja coloca a oferta no carrinho. O carrinho
-  fica só no navegador (`localStorage`, chave `pixelradar_carrinho`) e guarda
-  apenas "qual oferta" e "quantas unidades". Preços, lojas e totais são sempre
-  recalculados pela API; o que o navegador mandar sobre preço é ignorado.
+- O botão **+** ao lado de cada loja coloca a oferta no carrinho. Só se guarda
+  "qual oferta" e "quantas unidades"; preços, lojas e totais são sempre
+  recalculados pela API, e o que o navegador mandar sobre preço é ignorado.
+  - **Sem login:** o carrinho fica só no navegador (`localStorage`, chave
+    `pixelradar_carrinho`).
+  - **Com login:** o carrinho é salvo na conta (tabela `carrinho_itens`). Ao
+    clicar em "Sair" ele some da tela e do navegador (quem usar o computador
+    depois não vê nada), mas volta quando a pessoa entrar de novo, em qualquer
+    aparelho. Itens montados como visitante antes do login são somados aos da
+    conta (máx. 5 por item e 20 itens diferentes).
+  - Pedidos confirmados saem do carrinho.
 - O carrinho é **agrupado por loja**, porque cada compra acontece em uma loja
   por vez. Para cada loja há dois caminhos:
   1. **Pagar pelo PixelRadar (demonstração):** exige login, mostra só as
@@ -183,9 +191,10 @@ where p.status = 'pago' group by l.nome order by comissao_reais desc;
 select l.nome, count(*) as cliques from cliques_loja c join lojas l on l.id = c.loja_id group by l.nome order by cliques desc;
 ```
 
-**Atualizando um banco que já existe:** cole `db/migracao_carrinho.sql` no SQL
-Editor do Neon e execute uma vez. Ele só adiciona colunas e tabelas (pode
-repetir sem problema) e não apaga nenhum dado.
+**Atualizando um banco que já existe:** no SQL Editor do Neon, execute uma vez
+`db/migracao_carrinho.sql` e depois `db/migracao_carrinho_conta.sql` (a
+segunda cria a tabela do carrinho da conta). Elas só adicionam colunas e
+tabelas (podem repetir sem problema) e não apagam nenhum dado.
 
 **Para virar um negócio de verdade** (fora do escopo desta demonstração):
 
